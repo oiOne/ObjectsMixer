@@ -83,7 +83,7 @@ namespace ObjectsMixer
         {
             _left = left;
             _right = right;
-            var defaultSettings = new MixerSettings().WithLeftPriority();
+            var defaultSettings = new MixerSettings();
             var props = GetPropertiesResultSet(_left, _right, defaultSettings);
             foreach (var prop in props)
             {
@@ -97,11 +97,13 @@ namespace ObjectsMixer
         {
             var leftDescriptors = GetPropDescriptorsArray(left);
             var rightDescriptors = GetPropDescriptorsArray(right);
+            PropertyComparer<PropertyDescriptor> nameComparer = new PropertyComparer<PropertyDescriptor>(x => x.Name);
 
-            var forComparisonDescr = leftDescriptors.Intersect<PropertyDescriptor>(rightDescriptors);
+            var forComparisonDescr = leftDescriptors.Intersect<PropertyDescriptor>(rightDescriptors, nameComparer);
 
-            var diffLeftDescr = leftDescriptors.Except<PropertyDescriptor>(rightDescriptors);
-            var diffRightDescr = rightDescriptors.Except<PropertyDescriptor>(leftDescriptors);
+            var diffLeftDescr = leftDescriptors.Except<PropertyDescriptor>(rightDescriptors, nameComparer);
+
+            var diffRightDescr = rightDescriptors.Except<PropertyDescriptor>(leftDescriptors, nameComparer);
 
             var resultSet = new Dictionary<string, object>();
             foreach (var propertyDescriptor in diffLeftDescr)
@@ -110,7 +112,8 @@ namespace ObjectsMixer
             }
             foreach (var propertyDescriptor in diffRightDescr)
             {
-                resultSet.Add(propertyDescriptor.Name, propertyDescriptor.GetValue(right));
+                if (!resultSet.ContainsKey(propertyDescriptor.Name))
+                    resultSet.Add(propertyDescriptor.Name, propertyDescriptor.GetValue(right));
             }
 
             
@@ -122,19 +125,59 @@ namespace ObjectsMixer
             {
                 forComparisonDescr = rightDescriptors.Intersect<PropertyDescriptor>(leftDescriptors);
                 PopulateComparedResultSetWithPriority(resultSet, forComparisonDescr, _right);
+            } else if (settings.Priority == Priority.Merge)
+            {
+                PopulateComparedResultSetWithWerge(resultSet, forComparisonDescr);
             }
            
             return resultSet;
         }
 
-        private static void PopulateComparedResultSetWithPriority(Dictionary<string, object> resultSet,
-            IEnumerable<PropertyDescriptor> forComparisonDescr, object priorObj)
+        private static void PopulateComparedResultSetWithPriority(
+            Dictionary<string, object> resultSet,
+            IEnumerable<PropertyDescriptor> forComparisonDescr,
+            object priorObj)
         {
             foreach (var propertyDescriptor in forComparisonDescr)
             {
                 resultSet.Add(propertyDescriptor.Name, propertyDescriptor.GetValue(priorObj));
             }
         }
-        
+        private static void PopulateComparedResultSetWithWerge(
+            Dictionary<string, object> resultSet,
+            IEnumerable<PropertyDescriptor> forComparisonDescr)
+        {
+            foreach (var propertyDescriptor in forComparisonDescr)
+            {
+                var propValueObj = GetNotEmptyPropValueObject(propertyDescriptor);
+                resultSet.Add(propertyDescriptor.Name, propValueObj);
+            }
+        }
+
+        private static object GetNotEmptyPropValueObject(PropertyDescriptor propertyDescriptor)
+        {
+            object result = null;
+            var leftVal = ExtractPropValueOfObjectBy(propertyDescriptor.Name, _left);
+            var rightVal = ExtractPropValueOfObjectBy(propertyDescriptor.Name, _right);
+
+            bool leftIsEmpty = leftVal   == null || leftVal.ToString() == string.Empty;
+            bool rightIsEmpty = rightVal == null || rightVal.ToString() == string.Empty;
+
+            if ((leftIsEmpty && rightIsEmpty) || (!leftIsEmpty && !rightIsEmpty))
+               return leftVal;
+            if (leftIsEmpty)
+               return rightVal;
+            if (rightIsEmpty)
+               return leftVal;
+
+            return result;
+        }
+
+        private static object ExtractPropValueOfObjectBy(string name, object obj)
+        {
+            var leftDescriptors = GetPropDescriptorsArray(obj);
+            var leftVal = default(object);
+            return leftDescriptors.FirstOrDefault(x => x.Name == name).GetValue(obj);
+        }
     }
 }

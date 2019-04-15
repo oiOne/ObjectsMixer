@@ -4,7 +4,7 @@ namespace ObjectsMixer
 {
     public class MixerSettings
     {
-        private Priority _priority = Priority.Left;
+        private Priority _priority = Priority.Merge;
         public Priority Priority => _priority;
         public MixerSettings WithLeftPriority()
         {

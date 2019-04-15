@@ -3,7 +3,8 @@
     public enum Priority
     {
         Left,
-        Right
+        Right,
+        Merge
     }
 
 }
