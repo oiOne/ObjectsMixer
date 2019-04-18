@@ -17,9 +17,9 @@ namespace ObjectsMixer
             return this;
         }
 
-        public ExpandoObject Merge(object left, object right)
+        public ExpandoObject Mix(object left, object right)
         {
-            return ObjectMixer.MergeObjects(left, right, this);
+            return new Mixer().MixObjects(left, right, this);
         }
     }
 }

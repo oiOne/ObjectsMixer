@@ -1,23 +1,22 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Dynamic;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 
 namespace ObjectsMixer
 {
-    public static class ObjectMixer
+    public class Mixer
     {
-        
-        private static object _right;
-        private static object _left;
-        private static ExpandoObject _expando;
-        private static MixerSettings _settings;
 
-        static ObjectMixer()
+        private object _right;
+        private object _left;
+        private ExpandoObject _expando;
+        private MixerSettings _settings;
+
+        public Mixer()
         {
             CreateResultObject();
         }
@@ -39,7 +38,7 @@ namespace ObjectsMixer
         {
             return new MixerSettings().WithLeftPriority();
         }
-        private static void CreateResultObject()
+        private void CreateResultObject()
         {
             _expando = new ExpandoObject();
         }
@@ -68,7 +67,7 @@ namespace ObjectsMixer
             return Activator.CreateInstance(x.GetType(), props);
         }
 
-        public static ExpandoObject MergeObjects(object left, object right, MixerSettings settings)
+        public ExpandoObject MixObjects(object left, object right, MixerSettings settings)
         {
             _left = left;
             _right = right;
@@ -82,7 +81,12 @@ namespace ObjectsMixer
             return _expando;
         }
 
-        public static ExpandoObject MergeObjects(object left, object right)
+        public static ExpandoObject MixObjects(object left, object right)
+        {
+            return new Mixer().MergeObjects(left, right);
+        }
+
+        public ExpandoObject MergeObjects(object left, object right)
         {
             _left = left;
             _right = right;
@@ -96,7 +100,7 @@ namespace ObjectsMixer
             return _expando;
         }
 
-        private static Dictionary<string, object> GetPropertiesResultSet(object left, object right, MixerSettings settings)
+        private Dictionary<string, object> GetPropertiesResultSet(object left, object right, MixerSettings settings)
         {
             var leftDescriptors = GetPropDescriptorsArray(left);
             var rightDescriptors = GetPropDescriptorsArray(right);
@@ -119,7 +123,7 @@ namespace ObjectsMixer
                     resultSet.Add(propertyDescriptor.Name, propertyDescriptor.GetValue(right));
             }
 
-            
+
             if (settings.Priority == Priority.Left)
             {
                 PopulateComparedResultSetWithPriority(resultSet, forComparisonDescr, _left);
@@ -128,11 +132,12 @@ namespace ObjectsMixer
             {
                 forComparisonDescr = rightDescriptors.Intersect<PropertyDescriptor>(leftDescriptors);
                 PopulateComparedResultSetWithPriority(resultSet, forComparisonDescr, _right);
-            } else if (settings.Priority == Priority.Merge)
+            }
+            else if (settings.Priority == Priority.Merge)
             {
                 PopulateComparedResultSetWithWerge(resultSet, forComparisonDescr);
             }
-           
+
             return resultSet;
         }
 
@@ -146,7 +151,7 @@ namespace ObjectsMixer
                 resultSet.Add(propertyDescriptor.Name, propertyDescriptor.GetValue(priorObj));
             }
         }
-        private static void PopulateComparedResultSetWithWerge(
+        private void PopulateComparedResultSetWithWerge(
             Dictionary<string, object> resultSet,
             IEnumerable<PropertyDescriptor> forComparisonDescr)
         {
@@ -159,23 +164,32 @@ namespace ObjectsMixer
                 {
                     resultSet.Add(propertyDescriptor.Name, propValueObj);
                 }
-                else if (!propValueObj.GetType().IsPrimitive && 
+                else if (propValueObj.GetType().GetInterfaces()
+                    .Any(t => t.IsGenericType&& t.GetGenericTypeDefinition() == typeof(IList<>)))
+                {
+                    Debug.WriteLine("WE are within the ");
+
+                    var internalList = new List<object>(); // not extracted
+                    var leftArray = ((ArrayList) ExtractPropValueOfObjectBy(propertyDescriptor.Name, _left));
+                    var rightArray = ((ArrayList) ExtractPropValueOfObjectBy(propertyDescriptor.Name, _left));
+
+                    for (int i = 0; i < leftArray.Count; i++)
+                    {
+                        var mixedResult = MixObjects(leftArray[i], rightArray[i]);
+                        internalList.Add(mixedResult);
+                    }
+                    resultSet.Add(propertyDescriptor.Name, internalList);
+                }
+                else if (!propValueObj.GetType().IsPrimitive &&
                     propValueObj.GetType().UnderlyingSystemType.Name.Contains("Anonymous"))
                 {
-                    var nestedObj = ObjectMixer.MergeObjects(
+                    var nestedObj = Mixer.MixObjects(
                         ExtractPropValueOfObjectBy(propertyDescriptor.Name, _left),
                         ExtractPropValueOfObjectBy(propertyDescriptor.Name, _right)
                         );
 
                     resultSet.Add(propertyDescriptor.Name, nestedObj);
                 }
-                //else if (
-                //    propValueObj.GetType().GetInterfaces()
-                //    .Any(t => t.IsGenericType
-                //              && t.GetGenericTypeDefinition() == typeof(IEnumerable<>)))
-                //{
-                //    Debug.WriteLine("WE are within the ");
-                //}
                 else
                 {
                     resultSet.Add(propertyDescriptor.Name, propValueObj);
@@ -184,21 +198,29 @@ namespace ObjectsMixer
             }
         }
 
-        private static object GetNotEmptyPropValueObject(PropertyDescriptor propertyDescriptor)
+        private object GetNotEmptyPropValueObject(PropertyDescriptor propertyDescriptor)
         {
             object result = null;
-            var leftVal = ExtractPropValueOfObjectBy(propertyDescriptor.Name, _left);
-            var rightVal = ExtractPropValueOfObjectBy(propertyDescriptor.Name, _right);
+            try
+            {
+                var leftVal = ExtractPropValueOfObjectBy(propertyDescriptor.Name, _left);
+                var rightVal = ExtractPropValueOfObjectBy(propertyDescriptor.Name, _right);
 
-            bool leftIsEmpty = leftVal   == null || leftVal.ToString() == string.Empty;
-            bool rightIsEmpty = rightVal == null || rightVal.ToString() == string.Empty;
+                bool leftIsEmpty = leftVal == null || leftVal.ToString() == string.Empty;
+                bool rightIsEmpty = rightVal == null || rightVal.ToString() == string.Empty;
 
-            if ((leftIsEmpty && rightIsEmpty) || (!leftIsEmpty && !rightIsEmpty))
-               return leftVal;
-            if (leftIsEmpty)
-               return rightVal;
-            if (rightIsEmpty)
-               return leftVal;
+                if ((leftIsEmpty && rightIsEmpty) || (!leftIsEmpty && !rightIsEmpty))
+                    return leftVal;
+                if (leftIsEmpty)
+                    return rightVal;
+                if (rightIsEmpty)
+                    return leftVal;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine(ex.Message);
+                throw;
+            }
 
             return result;
         }
