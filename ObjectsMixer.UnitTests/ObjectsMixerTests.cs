@@ -1,14 +1,17 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Dynamic;
+using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using ObjectsMixer.Tests.Models;
-using ObjectsMixer.Tests.Services;
+using ObjectsMixer.UnitTests.Models;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace ObjectsMixer.Tests
+namespace ObjectsMixer.UnitTests
 {
 
     public class ObjectsMixerTests
@@ -219,38 +222,38 @@ namespace ObjectsMixer.Tests
         public void Mix_JObjects_ByDefault_Left_With_Right_Additional_Prop()
         {
             var json_1 =
-                $"{{\r\n\t\"Wastage\": \"1\",\r\n\t\"Qty\": \"1.5\",\r\n\t\"ROUNDUP_Result\": \"ROUNDUP(({{Qty}}*(1+{{Wastage}})),0)\"\r\n}}";
+                $"{{\r\n\t\"Option1\": \"1\",\r\n\t\"Option2\": \"1.5\",\r\n\t\"OptionResult\": \"{{expression}}\"\r\n}}";
             var json_2 =
-                $"{{\r\n\t\"Wastage\": \"2\",\r\n\t\"Qty\": \"2.5\",\r\n\t\"ROUNDUP_Result\": \"ROUNDUP(({{Qty}}*(1+{{Wastage}})),0)\",\r\n\t\"QtyView\": \"\'Not Required\'\",\r\n}}";
+                $"{{\r\n\t\"Option1\": \"2\",\r\n\t\"Option2\": \"2.5\",\r\n\t\"OptionResult\": \"{{expression}}\",\r\n\t\"Additional1\": \"\'Not Required\'\",\r\n}}";
 
             var jObj_1 = JObject.Parse(json_1);
             var jObj_2 = JObject.Parse(json_2);
 
             dynamic result = Mixer.MixObjects(jObj_1, jObj_2);
 
-            Assert.Equal("1", result.Wastage.ToString());
-            Assert.Equal("1.5", result.Qty.ToString());
-            Assert.Equal($"ROUNDUP(({{Qty}}*(1+{{Wastage}})),0)", result.ROUNDUP_Result.ToString());
-            Assert.Equal($"'Not Required'", result.QtyView.ToString());
+            Assert.Equal("1", result.Option1.ToString());
+            Assert.Equal("1.5", result.Option2.ToString());
+            Assert.Equal($"{{expression}}", result.OptionResult.ToString());
+            Assert.Equal($"'Not Required'", result.Additional1.ToString());
         }
 
         [Fact]
         public void Mix_JObjects_With_Some_Left_Empty_Props()
         {
             var json_1 =
-                $"{{\r\n\t\"Wastage\": \"\",\r\n\t\"Qty\": \"\",\r\n\t\"ROUNDUP_Result\": \"ROUNDUP(({{Qty}}*(1+{{Wastage}})),0)\"\r\n}}";
+                $"{{\r\n\t\"Option1\": \"\",\r\n\t\"Option2\": \"\",\r\n\t\"OptionResult\": \"{{expression}}\"\r\n}}";
             var json_2 =
-                $"{{\r\n\t\"Wastage\": \"2\",\r\n\t\"Qty\": \"2.5\",\r\n\t\"ROUNDUP_Result\": \"ROUNDUP(({{Qty}}*(1+{{Wastage}})),0)\",\r\n\t\"QtyView\": \"\'Not Required\'\",\r\n}}";
+                $"{{\r\n\t\"Option1\": \"2\",\r\n\t\"Option2\": \"2.5\",\r\n\t\"OptionResult\": \"{{expression}}\",\r\n\t\"Additional1\": \"\'Not Required\'\",\r\n}}";
 
             var jObj_1 = JObject.Parse(json_1);
             var jObj_2 = JObject.Parse(json_2);
 
             dynamic result = Mixer.MixObjects(jObj_1, jObj_2);
 
-            Assert.Equal("2", result.Wastage.ToString());
-            Assert.Equal("2.5", result.Qty.ToString());
-            Assert.Equal($"ROUNDUP(({{Qty}}*(1+{{Wastage}})),0)", result.ROUNDUP_Result.ToString());
-            Assert.Equal($"'Not Required'", result.QtyView.ToString());
+            Assert.Equal("2", result.Option1.ToString());
+            Assert.Equal("2.5", result.Option2.ToString());
+            Assert.Equal($"{{expression}}", result.OptionResult.ToString());
+            Assert.Equal($"'Not Required'", result.Additional1.ToString());
         }
 
         [Fact]
@@ -340,56 +343,11 @@ namespace ObjectsMixer.Tests
             Assert.Equal("Nested_2", result.NestedProp.Name.ToString());
             Assert.Equal("11", result.NestedProp.Id.ToString());
         }
-        [Fact]
-        public void Mix_Lines_Formulas_And_Default()
-        {
-
-            var obj_default = InternalLeaf.GetWithDefault();
-            var obj_formulas = InternalLeaf.GetWithFormulas();
-
-            dynamic result = Mixer.MixObjects(obj_formulas, obj_default);
-
-            var expected = InternalLeaf.GetWithDefaultAndFormulas();
-
-            // default
-            Assert.Equal(expected.RowName, result.RowName.ToString());
-            Assert.Equal(expected.Enabled, result.Enabled.ToString());
-
-            // formulas
-            Assert.Equal(expected.Qty, result.Qty.ToString());
-            Assert.Equal(expected.QtyView, result.QtyView.ToString());
-
-        }
-
-        public void Mix_Objects_Which_Have_Enumerable()
-        {
-            var brick_config_default = new BrickBrickModuleConfiguration();
-            brick_config_default.MAT = "0.06";
-            var line_default = InternalLeaf.GetWithDefault();
-            brick_config_default.Lines = new List<Line>{ line_default };
-
-            var line_formulas = InternalLeaf.GetWithFormulas();
-            var brick_config_formulas = new BrickBrickModuleConfiguration();
-            brick_config_formulas.Lines = new List<Line> { line_formulas };
-
-            dynamic result = Mixer.MixObjects(brick_config_default, brick_config_formulas);
-
-            var expected = InternalLeaf.GetWithDefaultAndFormulas();
-
-            // default
-            Assert.Equal(expected.RowName, result.RowName.ToString());
-            Assert.Equal(expected.Enabled, result.Enabled.ToString());
-
-            // formulas
-            Assert.Equal(expected.Qty, result.Qty.ToString());
-            Assert.Equal(expected.QtyView, result.QtyView.ToString());
-
-        }
 
         [Fact]
         public void Check_Enumerable_Property_String()
         {
-            var str = "0.06";
+            var str = "0.01";
             var indicator = str.GetType().GetInterfaces()
                 .Any(t => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IList<>));
 
@@ -410,24 +368,37 @@ namespace ObjectsMixer.Tests
         }
 
         [Fact]
+        public void Check_Enumerable_Property_Of_Certain_Type()
+        {
+            var obj_1 = new Some { Id = Guid.NewGuid(), Name = string.Empty };
+            var enumProp = new List<object> { obj_1 };
+
+            var indicator = enumProp.GetType().GetInterfaces()
+                .Any(t => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IList<>));
+
+            Assert.True(indicator);
+
+        }
+
+        [Fact]
         public void Handle_Objects_In_The_Loop()
         {
-            var module_1_left = new ModuleInfo { Id = Guid.NewGuid(), Name = string.Empty };
-            var module_1_right = new ModuleInfo { Id = Guid.Empty, Name = "Module_1" };
+            var module_1_left = new Some { Id = Guid.NewGuid(), Name = string.Empty };
+            var module_1_right = new Some { Id = Guid.Empty, Name = "Module_1" };
 
-            var module_2_left = new ModuleInfo { Id = Guid.NewGuid(), Name = string.Empty };
-            var module_2_right = new ModuleInfo { Id = Guid.Empty, Name = "Module_2" };
+            var module_2_left = new Some { Id = Guid.NewGuid(), Name = string.Empty };
+            var module_2_right = new Some { Id = Guid.Empty, Name = "Module_2" };
 
 
-            List<ModuleInfo> leftSet = new List<ModuleInfo> { module_1_left, module_2_left };
-            List<ModuleInfo> rightSet = new List<ModuleInfo> { module_1_right, module_2_right };
+            List<Some> leftSet = new List<Some> { module_1_left, module_2_left };
+            List<Some> rightSet = new List<Some> { module_1_right, module_2_right };
 
-            var resultSetMerged = new List<ModuleInfo>(); 
+            var resultSetMerged = new List<Some>(); 
             for (int i = 0; i < leftSet.Count(); i++)
             {
                 dynamic mixedObject = Mixer.MixObjects(leftSet[i], rightSet[i]);
-                var target = new ModuleInfo();
-                Mapper<ModuleInfo>.Map(mixedObject, target);
+                var target = new Some();
+                new ObjectsMapper().Map<Some>(mixedObject, target);
 
                 resultSetMerged.Add(target);
             }
@@ -437,6 +408,211 @@ namespace ObjectsMixer.Tests
             Assert.NotEqual(Guid.Empty, resultSetMerged[0].Id);
             Assert.NotEqual(Guid.Empty, resultSetMerged[1].Id);
 
+        }
+
+        [Fact]
+        public void Handle_Objects_In_The_Loop_LeftPriority()
+        {
+            var module_1_left = new Some { Id = Guid.NewGuid(), Name = "Module_1" };
+            var module_1_right = new Some { Id = Guid.Empty, Name = "Module_2" };
+
+            var module_2_left = new Some { Id = Guid.NewGuid(), Name = string.Empty };
+            var module_2_right = new Some { Id = Guid.NewGuid(), Name = "Module_2" };
+
+
+            List<Some> leftSet = new List<Some> { module_1_left, module_2_left };
+            List<Some> rightSet = new List<Some> { module_1_right, module_2_right };
+
+            var resultSetMerged = new List<Some>();
+            for (int i = 0; i < leftSet.Count(); i++)
+            {
+                dynamic mixedObject = Mixer.MixObjects(leftSet[i], rightSet[i]);
+                var target = new Some();
+                new ObjectsMapper().Map<Some>(mixedObject, target);
+
+                resultSetMerged.Add(target);
+            }
+
+            Assert.Equal("Module_1", resultSetMerged[0].Name);
+            Assert.Equal("Module_2", resultSetMerged[1].Name);
+            Assert.NotEqual(Guid.Empty, resultSetMerged[0].Id);
+            Assert.NotEqual(module_2_right.Id, resultSetMerged[1].Id);
+
+        }
+
+        [Fact]
+        public void Handle_Objects_In_The_Loop_RightPriority()
+        {
+            var module_1_left = new Some { Id = Guid.NewGuid(), Name = "Module_1" };
+            var module_1_right = new Some { Id = Guid.Empty, Name = "Module_2" };
+
+            var module_2_left = new Some { Id = Guid.NewGuid(), Name = string.Empty };
+            var module_2_right = new Some { Id = Guid.NewGuid(), Name = "Module_2" };
+
+
+            List<Some> leftSet = new List<Some> { module_1_left, module_2_left };
+            List<Some> rightSet = new List<Some> { module_1_right, module_2_right };
+
+            var resultSetMerged = new List<Some>();
+            for (int i = 0; i < leftSet.Count(); i++)
+            {
+                dynamic mixedObject = Mixer.WithRightPriority().Mix(leftSet[i], rightSet[i]);
+                var target = new Some();
+                new ObjectsMapper().Map<Some>(mixedObject, target);
+
+                resultSetMerged.Add(target);
+            }
+
+            Assert.Equal("Module_2", resultSetMerged[0].Name);
+            Assert.Equal("Module_2", resultSetMerged[1].Name);
+            Assert.Equal(module_2_right.Id, resultSetMerged[1].Id);
+
+        }
+
+        [Fact]
+        public void Replace_Unnecessary_Symbols_InTheEnd_Of_String()
+        {
+            var input = new string[] {
+                "6.61 /*",
+                "6.61   ///",
+                "6.61 *",
+                "6.61 /*/",
+                "6.61 *//*/**",
+                "6.61 *//*/",
+                "6.61  /*/",
+                "6.61 *//*/",
+                "6.61*//*/*",
+
+            };
+            for (int i = 0; i < input.Length; i++)
+            {
+                var matched = Regex.Match(input[i], @"(.*?)[\s\/*]+$");
+                input[i] = matched.Groups[1].Value.ToString();
+
+                Assert.Equal("6.61", input[i]);
+            }
+
+
+        }
+
+        string GetDataFilesPath()
+        {
+            return Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Models"));
+        }
+
+        [Fact]
+        public void Find_Input_JSON_file_And_Deserialize_Into_Dynamic()
+        {
+            var filePath = Path.Combine(GetDataFilesPath(), "left_json.json");
+
+            var fileExists = File.Exists(filePath);
+            Assert.True(fileExists);
+            using (StreamReader sr = File.OpenText(filePath))
+            {
+                var objJSON = JsonConvert.DeserializeObject<ExpandoObject>(sr.ReadToEnd());
+                Assert.NotNull(objJSON);
+
+                var targetProps = typeof(TestClass).GetProperties();
+                Assert.Equal(4, targetProps.Count());
+
+                var target = new TestClass();
+                new ObjectsMapper().Map<TestClass, Inner>((ExpandoObject)objJSON, target);
+                Assert.NotNull(target);
+            }
+
+        }
+
+        [Fact]
+        public void Complex_UsersInput_And_Formulas_Extracting_Deserialize_And_Final_Merge()
+        {
+            var filePathLeft = Path.Combine(GetDataFilesPath(), "left_json.json");
+            var filePathRight = Path.Combine(GetDataFilesPath(), "right_json.json");
+            
+            var fileExistsLeft = File.Exists(filePathLeft);
+            var fileExistsRight = File.Exists(filePathRight);
+            Assert.True(fileExistsLeft);
+            Assert.True(fileExistsRight);
+
+            var targetLeft = new TestClass();
+            var targetRight = new TestClass();
+
+            using (StreamReader sr = File.OpenText(filePathLeft))
+            {
+                var objJSON = JsonConvert.DeserializeObject<ExpandoObject>(sr.ReadToEnd());
+                Assert.NotNull(objJSON);
+
+                new ObjectsMapper().Map<TestClass, Inner>((ExpandoObject)objJSON, targetLeft);
+            }
+            using (StreamReader sr = File.OpenText(filePathRight))
+            {
+                var objJSON = JsonConvert.DeserializeObject<ExpandoObject>(sr.ReadToEnd());
+                Assert.NotNull(objJSON);
+
+                new ObjectsMapper().Map<TestClass, Inner>((ExpandoObject)objJSON, targetRight);
+            }
+
+            Assert.NotNull(targetLeft);
+            Assert.NotNull(targetRight);
+            _output.WriteLine("Left:");
+            _output.WriteLine($"Id: {targetLeft.Id}");
+            _output.WriteLine($"Name: {targetLeft.Name}");
+            _output.WriteLine($"Total: {targetLeft.Total}");
+            _output.WriteLine($"Inner 1-st Class: {targetLeft.Inners.First().Class}");
+
+            _output.WriteLine("Right:");
+            _output.WriteLine($"Id: {targetRight.Id}");
+            _output.WriteLine($"Name: {targetRight.Name}");
+            _output.WriteLine($"Total: {targetRight.Total}");
+            _output.WriteLine($"Inner 1-st Class: {targetRight.Inners.First().Class}");
+
+            dynamic mixedObject = Mixer.MixObjects(targetLeft, targetRight);
+            _output.WriteLine("====Mixed====:");
+            _output.WriteLine($"Id: {mixedObject.Id}");
+            _output.WriteLine($"Name: {mixedObject.Name}");
+            _output.WriteLine($"Total: {mixedObject.Total}");
+            _output.WriteLine($"Inner 1-st Class: {mixedObject.Inners[0].Class}");
+
+
+            var target = new TestClass();
+            new ObjectsMapper().Map<TestClass, Inner>(mixedObject, target);
+
+            _output.WriteLine("====Mapped====:");
+            _output.WriteLine($"Id: {target.Id}");
+            _output.WriteLine($"Name: {target.Name}");
+            _output.WriteLine($"Total: {target.Total}");
+            _output.WriteLine($"Inner 1-st Class: {target.Inners.First().Class}");
+
+            Assert.NotNull(target);
+        }
+
+        /* Ignore Props */
+        [Fact]
+        public void Merge_Types_with_Ignore()
+        {
+            var obj1 = new
+            {
+                Property1 = "value_1",
+                Property2 = "value_2"
+            };
+            var obj2 = new
+            {
+                Property1 = "value_11",
+                Property4 = "value_4" /* ignore it */
+            };
+
+            dynamic result = Mixer
+                .Ignore(() => obj2.Property4)
+                .Mix(obj1, obj2);
+
+            Assert.NotNull(result.Property1.ToString());
+            Assert.Equal("value_1", result.Property1.ToString());
+            Assert.NotNull(result.Property2.ToString());
+            Assert.Equal("value_2", result.Property2.ToString());
+        }
+
+        private static object GetResultValue(ExpandoObject result, string propName)
+        {
+            return result.GetType().GetProperty(propName).GetValue(result);
         }
     }
 

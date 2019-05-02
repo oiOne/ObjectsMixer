@@ -1,16 +1,16 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Dynamic;
 using System.Linq;
+using System.Linq.Expressions;
+using System.Text.RegularExpressions;
 
 namespace ObjectsMixer
 {
     public class Mixer
     {
-
         private object _right;
         private object _left;
         private ExpandoObject _expando;
@@ -37,6 +37,10 @@ namespace ObjectsMixer
         public static MixerSettings WithLeftPriority()
         {
             return new MixerSettings().WithLeftPriority();
+        }
+        public static MixerSettings Ignore(Expression<Func<object>> ignoreProperty)
+        {
+            return new MixerSettings().Ignore(ignoreProperty);
         }
         private void CreateResultObject()
         {
@@ -100,6 +104,20 @@ namespace ObjectsMixer
             return _expando;
         }
 
+        private IEnumerable<PropertyDescriptor> FilterIgnoredProperties(
+            IEnumerable<PropertyDescriptor> propertyDescriptors, object source, MixerSettings settings
+        )
+        {
+            foreach (var prop in propertyDescriptors)
+            {
+                var comparison = new Tuple<string, string>(source.GetType().Name, prop.Name);
+                if (!settings.IgnoredProperties.Contains(comparison))
+                {
+                    yield return prop;
+                }
+            }
+        }
+
         private Dictionary<string, object> GetPropertiesResultSet(object left, object right, MixerSettings settings)
         {
             var leftDescriptors = GetPropDescriptorsArray(left);
@@ -111,6 +129,10 @@ namespace ObjectsMixer
             var diffLeftDescr = leftDescriptors.Except<PropertyDescriptor>(rightDescriptors, nameComparer);
 
             var diffRightDescr = rightDescriptors.Except<PropertyDescriptor>(leftDescriptors, nameComparer);
+
+            // todo: test ignoring but filter should be earlier than intersect or except operations
+            diffLeftDescr = FilterIgnoredProperties(diffLeftDescr, left, settings);
+            diffRightDescr = FilterIgnoredProperties(diffRightDescr, right, settings);
 
             var resultSet = new Dictionary<string, object>();
             foreach (var propertyDescriptor in diffLeftDescr)
@@ -157,8 +179,6 @@ namespace ObjectsMixer
         {
             foreach (var propertyDescriptor in forComparisonDescr)
             {
-                // case we have class as prop value [nested constuction]
-                // simple merge objects props
                 var propValueObj = GetNotEmptyPropValueObject(propertyDescriptor);
                 if (propValueObj == null)
                 {
@@ -167,18 +187,7 @@ namespace ObjectsMixer
                 else if (propValueObj.GetType().GetInterfaces()
                     .Any(t => t.IsGenericType&& t.GetGenericTypeDefinition() == typeof(IList<>)))
                 {
-                    Debug.WriteLine("WE are within the ");
-
-                    var internalList = new List<object>(); // not extracted
-                    var leftArray = ((ArrayList) ExtractPropValueOfObjectBy(propertyDescriptor.Name, _left));
-                    var rightArray = ((ArrayList) ExtractPropValueOfObjectBy(propertyDescriptor.Name, _left));
-
-                    for (int i = 0; i < leftArray.Count; i++)
-                    {
-                        var mixedResult = MixObjects(leftArray[i], rightArray[i]);
-                        internalList.Add(mixedResult);
-                    }
-                    resultSet.Add(propertyDescriptor.Name, internalList);
+                    resultSet.Add(propertyDescriptor.Name, propValueObj);
                 }
                 else if (!propValueObj.GetType().IsPrimitive &&
                     propValueObj.GetType().UnderlyingSystemType.Name.Contains("Anonymous"))
@@ -210,7 +219,32 @@ namespace ObjectsMixer
                 bool rightIsEmpty = rightVal == null || rightVal.ToString() == string.Empty;
 
                 if ((leftIsEmpty && rightIsEmpty) || (!leftIsEmpty && !rightIsEmpty))
+                {
+
+                    if (!leftIsEmpty && !rightIsEmpty && IsFormula(leftVal.ToString()))
+                        return leftVal;
+                    if (!rightIsEmpty && !leftIsEmpty && IsFormula(rightVal.ToString()))
+                        return rightVal;
+                    if (leftVal.GetType().GetInterfaces()
+                        .Any(t => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IList<>)))
+                    {
+                        var internalList = new List<object>();
+                        dynamic leftObj = ExtractPropValueOfObjectBy(propertyDescriptor.Name, _left);
+                        dynamic rightObj = ExtractPropValueOfObjectBy(propertyDescriptor.Name, _right);
+                        var leftArray = Enumerable.ToList(leftObj);
+                        var rightArray = Enumerable.ToList(rightObj);
+
+                        for (int i = 0; i < leftArray.Count; i++)
+                        {
+                            dynamic mixedObject = Mixer.MixObjects(leftArray[i], rightArray[i]);
+                            internalList.Add(mixedObject);
+                        }
+
+                        return internalList;
+                    }
                     return leftVal;
+                }
+
                 if (leftIsEmpty)
                     return rightVal;
                 if (rightIsEmpty)
@@ -225,18 +259,22 @@ namespace ObjectsMixer
             return result;
         }
 
+        private static bool IsFormula(string input)
+        {
+            return Regex.IsMatch(input, @"(\{.+\})");
+        }
+
         private static object ExtractPropValueOfObjectBy(string name, object obj)
         {
-            var leftDescriptors = GetPropDescriptorsArray(obj);
-            var leftVal = default(object);
-            return leftDescriptors.FirstOrDefault(x => x.Name == name).GetValue(obj);
+            var objDescriptors = GetPropDescriptorsArray(obj);
+            return objDescriptors.FirstOrDefault(x => x.Name == name).GetValue(obj);
         }
 
         private static object ExtractPropOfObjectBy(string name, object obj)
         {
-            var leftDescriptors = GetPropDescriptorsArray(obj);
-            var leftVal = default(object);
-            return leftDescriptors.FirstOrDefault(x => x.Name == name);
+            var objDescriptors = GetPropDescriptorsArray(obj);
+            return objDescriptors.FirstOrDefault(x => x.Name == name);
         }
+        
     }
 }

@@ -18,7 +18,7 @@ namespace ObjectsMixer
         private static void ThrowExceptionIfPropertyIsNull(Expression<Func<T, object>> property)
         {
             if (property == null)
-                throw new NullReferenceException("Property expression cannot be null.");
+                throw new NullReferenceException("Property expression cannot be null");
         }
 
         public PropertyComparer(Expression<Func<T, object>>[] properties)
@@ -34,7 +34,6 @@ namespace ObjectsMixer
 
         public bool Equals(T x, T y)
         {
-            // Check each property and return false if any fail to match.
             foreach (Expression<Func<T, object>> property in properties)
             {
                 if (!PropertyEquals(x, y, property))
@@ -49,11 +48,9 @@ namespace ObjectsMixer
             object xValue = property.Compile()(x);
             object yValue = property.Compile()(y);
 
-            // If the xValue is null then it equals only if yValue is Null as well;
             if (xValue == null)
                 return yValue == null;
 
-            // default comparer in use
             return xValue.Equals(yValue);
         }
 
@@ -79,7 +76,6 @@ namespace ObjectsMixer
         {
             int hash = 17;
 
-            // Check each property and return false if any fail to match.
             foreach (Expression<Func<T, object>> property in properties)
             {
                 object objValue = property.Compile()(obj);

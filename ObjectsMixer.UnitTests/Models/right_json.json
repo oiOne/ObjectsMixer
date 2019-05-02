@@ -1,0 +1,22 @@
+{
+  "Id": "00000000-0000-0000-0000-000000000000",
+  "Name": "Wrapper_1",
+  "Total": "1234",
+  "Inners": [
+    {
+      "Name": "First",
+      "Class": "false",
+      "Amount": "11"
+    },
+    {
+      "Name": "Second",
+      "Class": "false",
+      "Amount": "22"
+    },
+    {
+      "Name": "Third",
+      "Class": "false",
+      "Amount": "33"
+    }
+  ]
+}

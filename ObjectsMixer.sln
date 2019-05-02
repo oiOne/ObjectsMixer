@@ -5,7 +5,7 @@ VisualStudioVersion = 15.0.28307.438
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ObjectsMixer", "ObjectsMixer\ObjectsMixer.csproj", "{7E240E58-D276-4FF6-811B-E1FE2DDD479B}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ObjectsMixer.Tests", "ObjectsMixer.Tests\ObjectsMixer.Tests.csproj", "{548D9DFC-6624-4331-B8BC-725FD3D75DA7}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ObjectsMixer.UnitTests", "ObjectsMixer.UnitTests\ObjectsMixer.UnitTests.csproj", "{548D9DFC-6624-4331-B8BC-725FD3D75DA7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
