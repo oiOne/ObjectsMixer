@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Dynamic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -614,6 +616,7 @@ namespace ObjectsMixer.UnitTests
         {
             return result.GetType().GetProperty(propName).GetValue(result);
         }
+
     }
 
 }
