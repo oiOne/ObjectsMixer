@@ -398,9 +398,9 @@ namespace ObjectsMixer.UnitTests
             var resultSetMerged = new List<Some>(); 
             for (int i = 0; i < leftSet.Count(); i++)
             {
-                dynamic mixedObject = Mixer.MixObjects(leftSet[i], rightSet[i]);
-                var target = new Some();
-                new ObjectsMapper().Map<Some>(mixedObject, target);
+                ExpandoObject mixedObject = Mixer.MixObjects(leftSet[i], rightSet[i]);
+                
+                var target = ObjectsMapper.MapInto<Some>(mixedObject);
 
                 resultSetMerged.Add(target);
             }
@@ -429,8 +429,8 @@ namespace ObjectsMixer.UnitTests
             for (int i = 0; i < leftSet.Count(); i++)
             {
                 dynamic mixedObject = Mixer.MixObjects(leftSet[i], rightSet[i]);
-                var target = new Some();
-                new ObjectsMapper().Map<Some>(mixedObject, target);
+
+                var target = ObjectsMapper.MapInto<Some>(mixedObject);
 
                 resultSetMerged.Add(target);
             }
@@ -459,8 +459,8 @@ namespace ObjectsMixer.UnitTests
             for (int i = 0; i < leftSet.Count(); i++)
             {
                 dynamic mixedObject = Mixer.WithRightPriority().Mix(leftSet[i], rightSet[i]);
-                var target = new Some();
-                new ObjectsMapper().Map<Some>(mixedObject, target);
+
+                var target = ObjectsMapper.MapInto<Some>(mixedObject);
 
                 resultSetMerged.Add(target);
             }
@@ -519,6 +519,8 @@ namespace ObjectsMixer.UnitTests
 
                 var target = new TestClass();
                 new ObjectsMapper().Map<TestClass, Inner>((ExpandoObject)objJSON, target);
+
+                // TODO: like var target = ObjectsMapper.MapInto<TestClass>(objJSON);
                 Assert.NotNull(target);
             }
 
@@ -544,6 +546,7 @@ namespace ObjectsMixer.UnitTests
                 Assert.NotNull(objJSON);
 
                 new ObjectsMapper().Map<TestClass, Inner>((ExpandoObject)objJSON, targetLeft);
+                // TODO: like var target = ObjectsMapper.MapInto<TestClass>(objJSON);
             }
             using (StreamReader sr = File.OpenText(filePathRight))
             {
@@ -551,6 +554,7 @@ namespace ObjectsMixer.UnitTests
                 Assert.NotNull(objJSON);
 
                 new ObjectsMapper().Map<TestClass, Inner>((ExpandoObject)objJSON, targetRight);
+                // TODO: like var target = ObjectsMapper.MapInto<TestClass>(objJSON);
             }
 
             Assert.NotNull(targetLeft);
@@ -577,6 +581,7 @@ namespace ObjectsMixer.UnitTests
 
             var target = new TestClass();
             new ObjectsMapper().Map<TestClass, Inner>(mixedObject, target);
+            // TODO: like var target = ObjectsMapper.MapInto<TestClass>(objJSON);
 
             _output.WriteLine("====Mapped====:");
             _output.WriteLine($"Id: {target.Id}");

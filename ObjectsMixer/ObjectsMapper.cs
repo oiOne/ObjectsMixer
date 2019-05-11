@@ -225,6 +225,13 @@ namespace ObjectsMixer
             * convert IList`1 каких-то объектов типа T 
          */
 
+        public static T MapInto<T>(ExpandoObject resource) where T : class
+        {
+            var target = Activator.CreateInstance<T>();
+            new ObjectsMapper().Map<T>(resource, target);
+            return target;
+        }
+
         public static T MapInto<T>(dynamic resource) where T : class
         {
             var target = Activator.CreateInstance<T>();
