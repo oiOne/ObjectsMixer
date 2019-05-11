@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using ObjectsMixer.UnitTests.Models;
 using Xunit;
@@ -93,7 +94,7 @@ namespace ObjectsMixer.UnitTests
         }
 
         [Fact]
-        public void Detect_AnonymousType_In_Dictionary_Config()
+        public void Detect_NestedDictionary_In_Dictionary_Config()
         {
             var config = new Dictionary<string, object>
             {
@@ -107,7 +108,7 @@ namespace ObjectsMixer.UnitTests
                 }
             };
 
-            var result = _mapperSvc.GetNamesOfPropertiesWhichAreAnonymous(config);
+            var result = _mapperSvc.GetNamesOfPropertiesWhichAreDictionary(config);
 
             Assert.Single(result);
             Assert.Equal("Property3", result.First());
@@ -156,12 +157,12 @@ namespace ObjectsMixer.UnitTests
         }
 
         [Fact]
-        public void Assign_Complex()
+        public void MapFrom_Config_Into_Obj_With_ParticularType_Prop()
         {
             var config = new Dictionary<string, object>
             {
                 {"Property1", "Value1"},
-                {"Property Two", "2"},
+                {"Property Two", "Value2"},
                 {"Property3", new
                     {
                         Id= 11,
@@ -170,11 +171,103 @@ namespace ObjectsMixer.UnitTests
                 }
             };
 
-            var ssd = _mapperSvc.AssignConfigurationWithComplexObject<OtherClassEnumTyped>(config);
+            var result = ObjectsMapper.MapInto<OtherClassInnerTyped>(config);
+
+            Assert.Equal("Value1", result.Property1);
+            Assert.Equal("Value2", result.Property2);
+            Assert.Equal(11, result.Property3.Id);
+            Assert.Equal("Property3", result.Property3.Name);
+        }
+
+        
+
+        [Fact]
+        public void MapFrom_Config_Into_Obj_With_List_of_ParticularType_Prop()
+        {
+            var config = new Dictionary<string, object>
+            {
+                {"Property1", "Value1"},
+                {"Property Two", "Value2"},
+                {"Property3", new []  
+                    {
+                        new { Id= 11, Name= "Property31" }, 
+                        new { Id= 12, Name= "Property32" },
+                    }
+                }
+            };
+
+            var ssd = ObjectsMapper.MapInto<OtherClassEnumTyped>(config);
 
             Assert.Equal("Value1", ssd.Property1);
-            Assert.Equal("2", ssd.Property2);
-            Assert.Equal("Property3", ssd.Property3.First().Name);
+            Assert.Equal("Value2", ssd.Property2);
+            Assert.Equal(11, ssd.Property3.First().Id);
+            Assert.Equal(12, ssd.Property3.Last().Id);
+            Assert.Equal("Property31", ssd.Property3.First().Name);
+            Assert.Equal("Property32", ssd.Property3.Last().Name);
+        }
+
+        [Fact]
+        public void Assign_Complex_With_Two_Items_In_List()
+        {
+            var config = new Dictionary<string, object>
+            {
+                {"Property1", "Value1"},
+                {"Property Two", "2"},
+                {"Property3", new List<object>
+                    {
+                        new { Id= 31, Name= "Property3_1" },
+                        new { Id= 32, Name= "Property3_2" },
+                    } 
+                }
+            };
+
+            var result = ObjectsMapper.MapInto<OtherClassEnumTyped>(config);
+
+            Assert.Equal("Value1", result.Property1);
+            Assert.Equal("2", result.Property2);
+
+            Assert.Equal("Property3_1", result.Property3.First().Name);
+            Assert.Equal(31, result.Property3.First().Id);
+
+            Assert.Equal("Property3_2", result.Property3.Last().Name);
+            Assert.Equal(32, result.Property3.Last().Id);
+        }
+
+        /* Dynamic as source */
+
+        [Fact]
+        public void MapInto_Particular_Obj_From_Dynamic()
+        {
+            var resource = new
+            {
+                Id = 11,
+                Name = "Property3"
+            };
+
+            var result = ObjectsMapper.MapInto<OtherInner>(resource);
+
+            Assert.Equal(11, result.Id);
+            Assert.Equal("Property3", result.Name);
+        }
+
+        [Fact]
+        public void MapInto_Particular_Obj_With_Nested_One_From_Dynamic()
+        {
+            var resource = new {
+                Property1 = "Value1",
+                Property2 = "Value2",
+                Property3 = new {
+                    Id = 11,
+                    Name = "Property3"
+                }
+            };
+
+            var result = ObjectsMapper.MapInto<OtherClassInnerTyped>(resource);
+
+            Assert.Equal("Value1", result.Property1);
+            Assert.Equal("Value2", result.Property2);
+            Assert.Equal(11, result.Property3.Id);
+            Assert.Equal("Property3", result.Property3.Name);
         }
 
     }

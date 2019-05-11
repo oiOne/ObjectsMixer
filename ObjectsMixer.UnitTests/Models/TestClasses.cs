@@ -50,9 +50,19 @@ namespace ObjectsMixer.UnitTests.Models
         public IEnumerable<OtherInner> Property3 { get; set; }
     }
 
+    public class OtherClassInnerTyped
+    {
+        public string Property1 { get; set; }
+
+        [DisplayName("Property Two")]
+        public string Property2 { get; set; }
+
+        public OtherInner Property3 { get; set; }
+    }
+
     public class OtherInner
     {
-        public string Id { get; set; } /* we don't handle different types of property */
+        public int Id { get; set; } /* we don't handle different types of property */
         public string Name { get; set; }
     }
 

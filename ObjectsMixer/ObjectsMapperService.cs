@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
-using System.Text;
 
 namespace ObjectsMixer
 {
@@ -21,21 +20,65 @@ namespace ObjectsMixer
             }
         }
 
+        public IEnumerable<string> GetNamesOfPropertiesWhichAreAnonymous(dynamic source)
+        {
+            foreach (var prop in source.GetType().GetProperties())
+            {
+                var pType = prop.PropertyType;
+                if (pType.UnderlyingSystemType.Name.Contains("AnonymousType"))
+                {
+                    yield return prop.Name;
+                }
+            }
+        }
+
         public IEnumerable<string> GetNamesOfPropertiesWhichAreAnonymous<T>(T target) where T : Dictionary<string, object>
+        {
+            var result = new List<string>();
+
+            foreach (var key in target.Keys)
+            {
+                var tType = target[key].GetType();
+
+                if (tType.UnderlyingSystemType.Name.Contains("AnonymousType") && !tType.UnderlyingSystemType.Name.EndsWith("[]"))
+                {
+                    //yield return key;
+                    result.Add(key);
+                }
+            }
+
+            return result;
+        }
+        public IEnumerable<string> GetNamesOfPropertiesWhichAreDictionary<T>(T target) where T : Dictionary<string, object>
         {
             foreach (var key in target.Keys)
             {
                 var tType = target[key].GetType();
 
-                if (
-                    tType.UnderlyingSystemType.Name.Contains("Dictionary`2") ||
-                    tType.UnderlyingSystemType.Name.Contains("AnonymousType"))
+                if (tType.UnderlyingSystemType.Name.Contains("Dictionary`2"))
                 {
                     yield return key;
                 }
             }
         }
 
+        public IEnumerable<string> GetNamesOfPropertiesWhichAreList<T>(T target) where T : Dictionary<string, object>
+        {
+            var result = new List<string>();
+            foreach (var key in target.Keys)
+            {
+                var tType = target[key].GetType();
+
+                if (tType.UnderlyingSystemType.Name.Contains("List`1") || tType.UnderlyingSystemType.Name.EndsWith("[]"))
+                {
+                    result.Add(key);
+                    // yield return key;
+                }
+            }
+
+            return result;
+        }
+        
         public IEnumerable<T> CreateListOfAnonymousTypesFromConfig<T>(Dictionary<string, object> config)
             where T : class
         {
@@ -48,36 +91,6 @@ namespace ObjectsMixer
 
                 yield return resultType;
             }
-        }
-
-        public T AssignConfigurationWithComplexObject<T>(Dictionary<string, object> config)
-            where T : class
-        {
-            var target = Activator.CreateInstance<T>();
-            var toIgnoreNamesInAssigment = GetNamesOfPropertiesWhichAreAnonymous(config); // "Property3"
-
-            foreach (var prop in target.GetType().GetProperties())
-            {
-                var propName = GetNameOrDisplayNameOfProperty(prop, target);
-                object targetValue = null;
-                if (!toIgnoreNamesInAssigment.Contains(propName))
-                {
-                    targetValue = config[propName];
-                }
-                else
-                {
-                    var innerType = target.GetType().GetProperty(prop.Name).PropertyType.GenericTypeArguments[0];
-                    targetValue = this.GetType()
-                        .GetMethod("CreateListOfAnonymousTypesFromConfig")
-                        .MakeGenericMethod(innerType)
-                        .Invoke(this, new object[] { config });  // [ { Id: 11, Name: "Property3" } ]
-                }
-
-                target.GetType().GetProperty(prop.Name)
-                    .SetValue(target, targetValue, null);
-            }
-
-            return target;
         }
 
         public T AssignConfigurationWithObject<T>(Dictionary<string, object> config)
@@ -105,8 +118,16 @@ namespace ObjectsMixer
                 var propName = GetNameOrDisplayNameOfProperty(prop, target);
                 var valueFromConfig = config[propName];
 
-                target.GetType().GetProperty(prop.Name)
-                    .SetValue(target, valueFromConfig, null);
+                object targetVal = valueFromConfig;
+
+                if (valueFromConfig.GetType() != prop.PropertyType)
+                {
+                    // todo: set default for type if we can't parse and set value
+                    // throw new Exception("Type mismatch");
+                    targetVal = Convert.ChangeType(valueFromConfig, prop.PropertyType);
+                }
+
+                target.GetType().GetProperty(prop.Name).SetValue(target, targetVal, null);
             }
 
             return target;
