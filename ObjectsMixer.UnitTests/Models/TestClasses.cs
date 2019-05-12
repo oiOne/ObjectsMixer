@@ -24,6 +24,13 @@ namespace ObjectsMixer.UnitTests.Models
         public string Amount { get; set; }
     }
 
+    public class TypedInner
+    {
+        public string Name { get; set; }
+        public bool Class { get; set; }
+        public double Amount { get; set; }
+    }
+
     public class OtherClass
     {
         [DisplayName("Property One")]

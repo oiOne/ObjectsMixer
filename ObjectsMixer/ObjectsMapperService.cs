@@ -31,7 +31,23 @@ namespace ObjectsMixer
                 }
             }
         }
+        public IEnumerable<string> GetNamesOfPropertiesWhichAreJObjects<T>(T target) where T : Dictionary<string, object>
+        {
+            var result = new List<string>();
 
+            foreach (var key in target.Keys)
+            {
+                var tType = target[key].GetType();
+
+                if (tType.UnderlyingSystemType.Name.Contains("JObject"))
+                {
+                    //yield return key;
+                    result.Add(key);
+                }
+            }
+
+            return result;
+        }
         public IEnumerable<string> GetNamesOfPropertiesWhichAreAnonymous<T>(T target) where T : Dictionary<string, object>
         {
             var result = new List<string>();

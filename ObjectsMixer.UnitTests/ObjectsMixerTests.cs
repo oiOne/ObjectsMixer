@@ -592,6 +592,92 @@ namespace ObjectsMixer.UnitTests
             Assert.NotNull(target);
         }
 
+        [Fact]
+        public void Not_It_1()
+        {
+            var filePathLeft = Path.Combine(GetDataFilesPath(), "json1.json");
+            var fileExistsLeft = File.Exists(filePathLeft);
+            Assert.True(fileExistsLeft);
+
+            using (StreamReader sr = File.OpenText(filePathLeft))
+            {
+                var objJSON = JsonConvert.DeserializeObject<Dictionary<string, object>>(sr.ReadToEnd());
+                Assert.NotNull(objJSON);
+
+                // search for types where keys are equal to value.Name property if it property exists and values is JObject
+                var svc = new ObjectsMapperService();
+
+                // todo: check this type of determination in Calculator svc
+                var anonymousKeys = svc.GetNamesOfPropertiesWhichAreJObjects(objJSON);
+                Assert.True(anonymousKeys.Count() == 3);
+
+                var listOfJObjects = new List<Inner>();
+
+                foreach (var key in anonymousKeys)
+                {
+                    // TODO: check it for type with diff types of prop (bool, string, int, double, guid)
+                    // in case we catch exception we need to use object mapper class
+                    // also check for bool type in mapping for cases we use config QtyChanged and CostChanged
+
+                    var currentVal = JsonConvert.DeserializeObject<Inner>(objJSON[key].ToString());
+                    Assert.NotNull(currentVal);
+                    Assert.NotEmpty(currentVal.Name);
+
+                    listOfJObjects.Add(currentVal);
+                }
+
+                Assert.True(listOfJObjects.Count == 3);
+                //new ObjectsMapper().Map<TestClass, Inner>((ExpandoObject)objJSON, targetLeft);
+                // TODO: like var target = ObjectsMapper.MapInto<TestClass>(objJSON);
+            }
+
+        }
+
+        [Fact]
+        public void Not_It_1_Typed_Inner()
+        {
+            var filePathLeft = Path.Combine(GetDataFilesPath(), "json2.json");
+            var fileExistsLeft = File.Exists(filePathLeft);
+            Assert.True(fileExistsLeft);
+
+            using (StreamReader sr = File.OpenText(filePathLeft))
+            {
+                var objJSON = JsonConvert.DeserializeObject<Dictionary<string, object>>(sr.ReadToEnd());
+                Assert.NotNull(objJSON);
+
+                // search for types where keys are equal to value.Name property if it property exists and values is JObject
+                var svc = new ObjectsMapperService();
+
+                // todo: check this type of determination in Calculator svc
+                var anonymousKeys = svc.GetNamesOfPropertiesWhichAreJObjects(objJSON);
+                Assert.True(anonymousKeys.Count() == 3);
+
+                var listOfJObjects = new List<TypedInner>(); //remove it to have mapping in the loop
+
+                foreach (var key in anonymousKeys)
+                {
+                    // TODO: check it for type with diff types of prop (bool, string, int, double, guid)
+                    // in case we catch exception we need to use object mapper class
+                    // also check for bool type in mapping for cases we use config QtyChanged and CostChanged
+
+                    var converted = JsonConvert.DeserializeObject<ExpandoObject>(objJSON[key].ToString());
+                    var currentVal = ObjectsMapper.MapInto<TypedInner>(converted);
+
+                    Assert.NotNull(currentVal);
+                    Assert.NotEmpty(currentVal.Name);
+
+                    listOfJObjects.Add(currentVal);
+                }
+
+                Assert.True(listOfJObjects.Count == 3);
+                Assert.True(listOfJObjects.Last().Class);
+                Assert.True(listOfJObjects.Last().Amount == 33.3d);
+                //new ObjectsMapper().Map<TestClass, Inner>((ExpandoObject)objJSON, targetLeft);
+                // TODO: like var target = ObjectsMapper.MapInto<TestClass>(objJSON);
+            }
+
+        }
+
         /* Ignore Props */
         [Fact]
         public void Merge_Types_with_Ignore()

@@ -50,19 +50,40 @@ namespace ObjectsMixer
                     }
                     else if (kv.Value.GetType() != propType)
                     {
-                        if (propType.FullName.Equals(typeof(Guid).FullName))
-                        {
-                            if (Guid.TryParse(kv.Value.ToString(), out Guid parsedGuid))
-                                p.SetValue(destination, parsedGuid, null);
-                            else
-                                p.SetValue(destination, Guid.Empty, null);
-                            continue;
-                        }
+                        // try convert to target type
+                        var value = GetConvertedValue(kv.Value, propType);
+                        p.SetValue(destination, value, null);
+                        continue;
 
-                        throw new ArgumentException($"Type mismatch: {propType.FullName} and {kv.Value.GetType()}");
                     }
                     p.SetValue(destination, kv.Value, null);
                 }
+            }
+        }
+
+        public object GetConvertedValue(object value, Type targetType)
+        {
+            if (value == null || targetType == null)
+            {
+                throw new ArgumentNullException($"One of method's parameters is incorrect: 1st \'{value}\'; 2nd \'{targetType}\'.");
+            }
+            try
+            {
+                if (targetType == typeof(Guid))
+                {
+                    if (Guid.TryParse(value?.ToString(), out Guid parsedGuid))
+                        return parsedGuid;
+                    else
+                        return Guid.Empty;
+                }
+
+                var changedVal = Convert.ChangeType(value, targetType);
+                return changedVal;
+            }   
+            catch
+            {
+                // todo: if we couldn't change type value to target just use default or null value for it
+                throw new Exception ($"Type conversion error: We can't convert object \'{value?.GetType()}\' into \'{targetType}\'.");
             }
         }
 
@@ -85,15 +106,13 @@ namespace ObjectsMixer
                     {
                         if (kv.PropertyType != p.PropertyType)
                         {
-                            // todo: set default for type if we can't parse and set value
-                            throw new Exception("Type mismatch");
+                            var toConvert = kv.GetValue(source, null);
+                            var value = GetConvertedValue(toConvert, p.PropertyType);
+                            p.SetValue(destination, value, null);
+                            continue;
                         }
-                        else
-                        {
-                            var targetVal = Convert.ChangeType(kv.GetValue(source, null), p.PropertyType);
-                            p.SetValue(destination, targetVal, null);
-                        }
-                        
+
+                        p.SetValue(destination, kv.GetValue(source, null), null);
                     }
                     else
                     {

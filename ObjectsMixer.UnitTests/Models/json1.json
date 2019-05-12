@@ -1,0 +1,19 @@
+{
+  "Id": "00000000-0000-0000-0000-000000000000",
+  "Name": "Wrapper_1",
+  "First Line": {
+    "Name": "First Line",
+    "Class": "false",
+    "Amount": "11"
+  },
+  "Second Line": {
+    "Name": "Second Line",
+    "Class": "false",
+    "Amount": "22"
+  },
+  "Third Line": {
+    "Name": "Third Line",
+    "Class": "false",
+    "Amount": "33"
+  }
+}
