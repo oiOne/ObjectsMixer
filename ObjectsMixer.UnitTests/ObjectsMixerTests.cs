@@ -19,10 +19,11 @@ namespace ObjectsMixer.UnitTests
     public class ObjectsMixerTests
     {
         private readonly ITestOutputHelper _output;
-
+        private readonly ObjectsMapperService _svc;
         public ObjectsMixerTests(ITestOutputHelper output)
         {
             _output = output;
+            _svc = new ObjectsMapperService();
         }   
 
         [Fact]
@@ -605,10 +606,10 @@ namespace ObjectsMixer.UnitTests
                 Assert.NotNull(objJSON);
 
                 // search for types where keys are equal to value.Name property if it property exists and values is JObject
-                var svc = new ObjectsMapperService();
+                
 
                 // todo: check this type of determination in Calculator svc
-                var anonymousKeys = svc.GetNamesOfPropertiesWhichAreJObjects(objJSON);
+                var anonymousKeys = _svc.GetNamesOfPropertiesWhichAreJObjects(objJSON);
                 Assert.True(anonymousKeys.Count() == 3);
 
                 var listOfJObjects = new List<Inner>();
@@ -678,6 +679,56 @@ namespace ObjectsMixer.UnitTests
 
         }
 
+        [Fact]
+        public void MapInto__SomeWithTypedInner()
+        {
+            var filePathLeft = Path.Combine(GetDataFilesPath(), "json2.json");
+            var fileExistsLeft = File.Exists(filePathLeft);
+            Assert.True(fileExistsLeft);
+
+            using (StreamReader sr = File.OpenText(filePathLeft))
+            {
+                var objJSON = JsonConvert.DeserializeObject<Dictionary<string, object>>(sr.ReadToEnd());
+                Assert.NotNull(objJSON);
+
+                var svc = new ObjectsMapperService();
+                var anonymousKeys = svc.GetNamesOfPropertiesWhichAreJObjects(objJSON);
+                Assert.True(anonymousKeys.Count() == 3);
+
+                var targetType = new SomeWithTypedInner();
+                var nameOfEnumerableProperty = svc.GetPropertiesWhichAreEnumerable(targetType);
+                Assert.Equal("Inners", nameOfEnumerableProperty.First().Name);
+
+                var listOfJObjects = _svc.CreateListOf<TypedInner>(objJSON);
+
+                Assert.True(listOfJObjects.Count() == 3);
+                Assert.True(listOfJObjects.Last().Class);
+                Assert.True(listOfJObjects.Last().Amount == 33.3d);
+            }
+
+        }
+
+        [Fact]
+        public void Not_It_1_Typed_Inner_22()
+        {
+            var filePathLeft = Path.Combine(GetDataFilesPath(), "json2.json");
+            var fileExistsLeft = File.Exists(filePathLeft);
+            Assert.True(fileExistsLeft);
+
+            using (StreamReader sr = File.OpenText(filePathLeft))
+            {
+                var objJSON = JsonConvert.DeserializeObject<Dictionary<string, object>>(sr.ReadToEnd());
+                Assert.NotNull(objJSON);
+
+                var targetList = _svc.CreateListOf<TypedInner>(objJSON);
+
+                Assert.True(targetList.Count() == 3);
+                Assert.True(targetList.Last().Class);
+                Assert.True(targetList.Last().Amount == 33.3d);
+            }
+
+        }
+        
         /* Ignore Props */
         [Fact]
         public void Merge_Types_with_Ignore()

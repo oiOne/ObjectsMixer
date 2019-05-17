@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Dynamic;
 using System.Linq;
 using System.Reflection;
+using Newtonsoft.Json;
 
 namespace ObjectsMixer
 {
@@ -16,6 +18,19 @@ namespace ObjectsMixer
                     .Any(t => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IList<>)))
                 {
                     yield return prop.Name;
+                }
+            }
+
+        }
+
+        public IEnumerable<PropertyInfo> GetPropertiesWhichAreEnumerable<T>(T target) where T : class
+        {
+
+            foreach (var prop in target.GetType().GetProperties())
+            {
+                if (prop.PropertyType.Name.Contains("IEnumerable"))
+                {
+                    yield return prop;
                 }
             }
         }
@@ -50,20 +65,15 @@ namespace ObjectsMixer
         }
         public IEnumerable<string> GetNamesOfPropertiesWhichAreAnonymous<T>(T target) where T : Dictionary<string, object>
         {
-            var result = new List<string>();
-
             foreach (var key in target.Keys)
             {
                 var tType = target[key].GetType();
 
                 if (tType.UnderlyingSystemType.Name.Contains("AnonymousType") && !tType.UnderlyingSystemType.Name.EndsWith("[]"))
                 {
-                    //yield return key;
-                    result.Add(key);
+                    yield return key;
                 }
             }
-
-            return result;
         }
         public IEnumerable<string> GetNamesOfPropertiesWhichAreDictionary<T>(T target) where T : Dictionary<string, object>
         {
@@ -78,6 +88,19 @@ namespace ObjectsMixer
             }
         }
 
+        public IEnumerable<string> Search4DictionaryOrAnonymous<T>(T target) where T : Dictionary<string, object>
+        {
+            foreach (var key in target.Keys)
+            {
+                var tType = target[key].GetType();
+                var tName = tType.UnderlyingSystemType.Name;
+                if (tName.Contains("Dictionary`2") || tName.Contains("AnonymousType"))
+                {
+                    yield return key;
+                }
+            }
+        }
+       
         public IEnumerable<string> GetNamesOfPropertiesWhichAreList<T>(T target) where T : Dictionary<string, object>
         {
             var result = new List<string>();
@@ -149,6 +172,16 @@ namespace ObjectsMixer
             return target;
         }
 
+        public IEnumerable<T> CreateListOf<T>(Dictionary<string, object> source) where T : class
+        {
+            var anonymousKeys = GetNamesOfPropertiesWhichAreJObjects(source);
+            foreach (var key in anonymousKeys)
+            {
+                var converted = JsonConvert.DeserializeObject<ExpandoObject>(source[key].ToString());
+                yield return ObjectsMapper.MapInto<T>(converted);
+            }
+        }
+
         public Dictionary<string, string> GetPairsOfPropsAndValues(object obj)
         {
             var result = new Dictionary<string, string>();
@@ -183,6 +216,41 @@ namespace ObjectsMixer
             var propValue = val == null ? string.Empty : val.ToString();
 
             return propValue;
+        }
+
+        public object GetConvertedValue(object value, Type targetType)
+        {
+            if (value == null || targetType == null)
+            {
+                throw new ArgumentNullException($"One of method's parameters is incorrect: 1st \'{value}\'; 2nd \'{targetType}\'.");
+            }
+            try
+            {
+                if (targetType == typeof(Guid))
+                {
+                    if (Guid.TryParse(value?.ToString(), out Guid parsedGuid))
+                        return parsedGuid;
+                    else
+                        return Guid.Empty;
+                }
+
+                var changedVal = Convert.ChangeType(value, targetType);
+                return changedVal;
+            }
+            catch
+            {
+                return GetDefault(targetType);
+                // throw new Exception ($"Type conversion error: We can't convert object \'{value?.GetType()}\' into \'{targetType}\'.");
+            }
+        }
+
+        public object GetDefault(Type type)
+        {
+            if (type.IsValueType)
+                return Activator.CreateInstance(type);
+            if (type == typeof(string))
+                return string.Empty;
+            return null;
         }
     }
 }

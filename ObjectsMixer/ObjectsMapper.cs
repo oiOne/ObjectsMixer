@@ -13,10 +13,10 @@ namespace ObjectsMixer
         private Dictionary<string, PropertyInfo> _propertyMap;
         private ObjectsMapperService _mapperSvc;
 
+        private ObjectsMapperService MapperSvc => _mapperSvc ?? new ObjectsMapperService();
+
         private void InitMapperType<T>() where T : class
         {
-            if (_mapperSvc == null)
-                _mapperSvc = new ObjectsMapperService();
             _propertyMap =
                 typeof(T)
                     .GetProperties()
@@ -39,19 +39,17 @@ namespace ObjectsMixer
                     var propType = p.PropertyType;
                     if (kv.Value == null)
                     {
-                        if (propType.Name.Equals("String"))
-                        {
-                            p.SetValue(destination, string.Empty, null);
-                        }
-                        else if (!propType.Name.Equals("Nullable`1"))
-                        {
-                            throw new ArgumentException("Not Nullable");
-                        }
+                        var value = MapperSvc.GetDefault(propType);
+                        p.SetValue(destination, value, null);
+                        
+                        //else if (!propType.Name.Equals("Nullable`1"))
+                        //{
+                        //    throw new ArgumentException("Not Nullable");
+                        //}
                     }
                     else if (kv.Value.GetType() != propType)
                     {
-                        // try convert to target type
-                        var value = GetConvertedValue(kv.Value, propType);
+                        var value = MapperSvc.GetConvertedValue(kv.Value, propType);
                         p.SetValue(destination, value, null);
                         continue;
 
@@ -61,38 +59,12 @@ namespace ObjectsMixer
             }
         }
 
-        public object GetConvertedValue(object value, Type targetType)
-        {
-            if (value == null || targetType == null)
-            {
-                throw new ArgumentNullException($"One of method's parameters is incorrect: 1st \'{value}\'; 2nd \'{targetType}\'.");
-            }
-            try
-            {
-                if (targetType == typeof(Guid))
-                {
-                    if (Guid.TryParse(value?.ToString(), out Guid parsedGuid))
-                        return parsedGuid;
-                    else
-                        return Guid.Empty;
-                }
-
-                var changedVal = Convert.ChangeType(value, targetType);
-                return changedVal;
-            }   
-            catch
-            {
-                // todo: if we couldn't change type value to target just use default or null value for it
-                throw new Exception ($"Type conversion error: We can't convert object \'{value?.GetType()}\' into \'{targetType}\'.");
-            }
-        }
-
-        public void MapInto<T>(dynamic source, T destination) where T : class
+        private void MapInto<T>(dynamic source, T destination) where T : class
         {
             InitMapperType<T>();
-            //InputGuard(source, destination);
+            //TODO: InputGuard(source, destination);
 
-            IEnumerable<string> ignoreNames = _mapperSvc.GetNamesOfPropertiesWhichAreAnonymous(source);
+            IEnumerable<string> ignoreNames = MapperSvc.GetNamesOfPropertiesWhichAreAnonymous(source);
             var ignoreNamesList = ignoreNames?.ToList();
 
             foreach (var kv in source.GetType().GetProperties())
@@ -100,14 +72,14 @@ namespace ObjectsMixer
                 PropertyInfo p;
                 if (_propertyMap.TryGetValue(kv.Name.ToLower(), out p))
                 {
-                    var propName = _mapperSvc.GetNameOrDisplayNameOfProperty(p, source);
+                    var propName = MapperSvc.GetNameOrDisplayNameOfProperty(p, source);
 
                     if (!ignoreNamesList.Contains(propName))
                     {
                         if (kv.PropertyType != p.PropertyType)
                         {
                             var toConvert = kv.GetValue(source, null);
-                            var value = GetConvertedValue(toConvert, p.PropertyType);
+                            var value = MapperSvc.GetConvertedValue(toConvert, p.PropertyType);
                             p.SetValue(destination, value, null);
                             continue;
                         }
@@ -176,17 +148,19 @@ namespace ObjectsMixer
                     var propType = p.PropertyType;
                     if (kv.Value == null)
                     {
-                        if (!propType.IsByRef)
+                        if (p.PropertyType.Name.Equals("String"))
                         {
-                            if (propType.Name.Equals("String"))
-                            {
-                                p.SetValue(destination, string.Empty, null);
-                            }
-                            else if (!propType.Name.Equals("Nullable`1"))
-                            {
-                                throw new ArgumentException("Not Nullable");
-                            }
+                            var defaultVal = MapperSvc.GetDefault(p.PropertyType);
+                            p.SetValue(destination, defaultVal, null);
+                            continue;
                         }
+                        //if (!propType.IsByRef)
+                        //{
+                        //    else if (!propType.Name.Equals("Nullable`1"))
+                        //    {
+                        //        throw new ArgumentException("Not Nullable");
+                        //    }
+                        //}
 
                     }
                     else if (kv.Value.GetType() != propType)
@@ -238,11 +212,6 @@ namespace ObjectsMixer
             if (destination == null)
                 throw new ArgumentNullException("destination");
         }
-        /*
-            * convert Anonymous => object
-            * convert Dictionary`2 as Dictioanry<string, object>
-            * convert IList`1 каких-то объектов типа T 
-         */
 
         public static T MapInto<T>(ExpandoObject resource) where T : class
         {
@@ -265,19 +234,80 @@ namespace ObjectsMixer
             return target;
         }
 
-        public void MapInto<T>(Dictionary<string, object> config, T destination) where T : class
+        // ignore some block TODO: this feature
+        //public static MapperSettings Ignore(Expression<Func<object>> ignoreProperty)
+        //{
+        //    return new MapperSettings().Ignore(ignoreProperty);
+        //}
+        //public static T MapInto<T>(Dictionary<string, object> config, T destination, MapperSettings mapperSettings) where T : class
+        //{
+        //    var target = Activator.CreateInstance<T>();
+        //    new ObjectsMapper().MapInto<T>(config, mapperSettings, target);
+        //    return target;
+        //}
+        //public void MapInto<T>(Dictionary<string, object> config, MapperSettings mapperSettings, T destination) where T : class
+        //{
+        //    if (_mapperSvc == null)
+        //        _mapperSvc = new ObjectsMapperService();
+
+        //    var target = destination;
+
+        //    var ignoreNames = _mapperSvc.GetNamesOfPropertiesWhichAreAnonymous(config);
+        //    var ignoreEnumPropNames = _mapperSvc.GetNamesOfPropertiesWhichAreList(config);
+
+        //    var propsCollection = target.GetType().GetProperties();
+        //    // TODO: for what???
+        //    //var whatExclude = mapperSettings.IgnoredProperties;
+
+        //    foreach (var prop in propsCollection)
+        //    {
+        //        var propName = _mapperSvc.GetNameOrDisplayNameOfProperty(prop, target);
+        //        object targetValue = null;
+        //        if (!ignoreNames.Contains(propName) && !ignoreEnumPropNames.Contains(propName))
+        //        {
+        //            targetValue = config[propName];
+        //        }
+        //        else
+        //        {
+        //            if (ignoreEnumPropNames.Any())
+        //            {
+        //                var innerType = target.GetType().GetProperty(prop.Name).PropertyType.GenericTypeArguments[0];
+        //                var innerArray = config[propName];
+
+        //                targetValue = this.GetType()
+        //                    .GetMethod("CreateListOfAnonymousTypesFromConfig")
+        //                    .MakeGenericMethod(innerType)
+        //                    .Invoke(this, new object[] { innerArray });
+
+        //            }
+
+        //            if (ignoreNames.Any())
+        //            {
+        //                var currentProp = target.GetType().GetProperty(prop.Name);
+        //                var currentPropValue = config[propName];
+
+        //                dynamic result = Activator.CreateInstance(currentProp.PropertyType);
+        //                this.MapInto(currentPropValue, result);
+        //                targetValue = result;
+        //            }
+        //            // todo: dictionary case if type has such type of prop
+        //        }
+
+        //        target.GetType().GetProperty(prop.Name)
+        //            .SetValue(target, targetValue, null);
+        //    }
+        //}
+        private void MapInto<T>(Dictionary<string, object> config, T destination) where T : class
         {
-            if (_mapperSvc == null)
-                _mapperSvc = new ObjectsMapperService();
 
             var target = destination;
 
-            var ignoreNames = _mapperSvc.GetNamesOfPropertiesWhichAreAnonymous(config);
-            var ignoreEnumPropNames = _mapperSvc.GetNamesOfPropertiesWhichAreList(config);
+            var ignoreNames = MapperSvc.GetNamesOfPropertiesWhichAreAnonymous(config);
+            var ignoreEnumPropNames = MapperSvc.GetNamesOfPropertiesWhichAreList(config);
 
             foreach (var prop in target.GetType().GetProperties())
             {
-                var propName = _mapperSvc.GetNameOrDisplayNameOfProperty(prop, target);
+                var propName = MapperSvc.GetNameOrDisplayNameOfProperty(prop, target);
                 object targetValue = null;
                 if (!ignoreNames.Contains(propName) && !ignoreEnumPropNames.Contains(propName))
                 {
@@ -325,6 +355,36 @@ namespace ObjectsMixer
 
                 yield return mappedItem;
             }
+        }
+        public static IEnumerable<T> MapIntoListOf<T>(dynamic source) where T : class
+        {
+            return new ObjectsMapper().MapIntoList<T>(source);
+        }
+        public static IEnumerable<T> MapIntoListOf<T>(Dictionary<string, object> source) where T : class
+        {
+            return new ObjectsMapper().MapIntoList<T>(source);
+        }
+        private IEnumerable<T> MapIntoList<T>(dynamic source) where T : class
+        {
+            var result = new List<T>();
+            foreach (var item in source)
+            {
+                var mapped = MapInto<T>(item);
+                result.Add(mapped);
+            }
+            return result;
+        }
+        private IEnumerable<T> MapIntoList<T>(Dictionary<string, object> source) where T : class
+        {
+            var anonymousKeys = MapperSvc.Search4DictionaryOrAnonymous(source);
+
+            var result = new List<T>();
+            foreach (var key in anonymousKeys)
+            {
+                var mapped = MapInto<T>(source[key]);
+                result.Add(mapped);
+            }
+            return result;
         }
 
     }

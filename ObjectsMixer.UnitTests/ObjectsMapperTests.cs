@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using ObjectsMixer.UnitTests.Models;
 using Xunit;
@@ -11,6 +10,7 @@ namespace ObjectsMixer.UnitTests
     {
         private readonly ITestOutputHelper _output;
         private readonly ObjectsMapperService _mapperSvc;
+
         public ObjectsMapperTests(ITestOutputHelper output)
         {
             _output = output;
@@ -196,14 +196,17 @@ namespace ObjectsMixer.UnitTests
                 }
             };
 
-            var ssd = ObjectsMapper.MapInto<OtherClassEnumTyped>(config);
+            var result = ObjectsMapper.MapInto<OtherClassEnumTyped>(config);
 
-            Assert.Equal("Value1", ssd.Property1);
-            Assert.Equal("Value2", ssd.Property2);
-            Assert.Equal(11, ssd.Property3.First().Id);
-            Assert.Equal(12, ssd.Property3.Last().Id);
-            Assert.Equal("Property31", ssd.Property3.First().Name);
-            Assert.Equal("Property32", ssd.Property3.Last().Name);
+            // TODO: like below
+            //var result = _mapper.MapInto<OtherClassEnumTyped>(config);
+
+            Assert.Equal("Value1", result.Property1);
+            Assert.Equal("Value2", result.Property2);
+            Assert.Equal(11, result.Property3.First().Id);
+            Assert.Equal(12, result.Property3.Last().Id);
+            Assert.Equal("Property31", result.Property3.First().Name);
+            Assert.Equal("Property32", result.Property3.Last().Name);
         }
 
         [Fact]
@@ -222,6 +225,9 @@ namespace ObjectsMixer.UnitTests
             };
 
             var result = ObjectsMapper.MapInto<OtherClassEnumTyped>(config);
+
+            // TODO: like below
+            //var result = _mapper.MapInto<OtherClassEnumTyped>(config);
 
             Assert.Equal("Value1", result.Property1);
             Assert.Equal("2", result.Property2);
@@ -264,11 +270,99 @@ namespace ObjectsMixer.UnitTests
 
             var result = ObjectsMapper.MapInto<OtherClassInnerTyped>(resource);
 
+            // TODO: like below
+            //var result = _mapper.MapInto<OtherClassInnerTyped>(config);
+
             Assert.Equal("Value1", result.Property1);
             Assert.Equal("Value2", result.Property2);
             Assert.Equal(11, result.Property3.Id);
             Assert.Equal("Property3", result.Property3.Name);
         }
 
+        /* MapIntoList */
+        [Fact]
+        public void MapInto_List_dynamic()
+        {
+            var source = new []
+            {
+                new { Id= 11, Name= "Property31" },
+                new { Id= 12, Name= "Property32" }
+            };
+
+            var result = ObjectsMapper.MapIntoListOf<OtherInner>(source);
+
+            Assert.True(result.Count() == 2);
+            Assert.True(result.First().Id == 11);
+            Assert.True(result.Last().Id == 12);
+        }
+
+        [Fact]
+        public void MapInto_List_Dictionary()
+        {
+            var source = new Dictionary<string, object>
+            {
+                { "First", new Dictionary<string, object> { {"Id", 11 }, { "Name", "Property31" } } },
+                { "Second", new Dictionary<string, object> { {"Id", 12 }, { "Name", "Property32" } } },
+            };
+
+            var result = ObjectsMapper.MapIntoListOf<OtherInner>(source);
+
+            Assert.True(result.Count() == 2);
+            Assert.True(result.First().Id == 11);
+            Assert.Equal("Property31", result.First().Name);
+            Assert.True(result.Last().Id == 12);
+            Assert.Equal("Property32", result.Last().Name);
+        }
+
+        [Fact]
+        public void MapInto_List_Dictionary_Anonymous()
+        {
+            var source = new Dictionary<string, object>
+            {
+                { "First", new { Id= 11, Name= "Property31" } },
+                { "Second", new { Id= 12, Name= "Property32" } }
+            };
+
+            var result = ObjectsMapper.MapIntoListOf<OtherInner>(source);
+
+            Assert.True(result.Count() == 2);
+            Assert.True(result.First().Id == 11);
+            Assert.Equal("Property31", result.First().Name);
+            Assert.True(result.Last().Id == 12);
+            Assert.Equal("Property32", result.Last().Name);
+        }
+
+        /* Ignoring some */
+        [Fact]
+        public void Map_And_Ignore_First()
+        {
+            var config = new Dictionary<string, object>
+            {
+                {"Property1", "Value1"},
+                {"Property Two", "Value2"},
+                {"Property3", new []
+                    {
+                        new { Id= 11, Name= "Property31" },
+                        new { Id= 12, Name= "Property32" },
+                    }
+                }
+            };
+            // we'd like to have such functionality
+            // var result = ObjectsMapper.Ignore(() => target.Property1).MapInto<OtherClassEnumTyped>(config);
+
+            //Assert.Null(result.Property1);
+            Assert.True(false);
+        }
+
+        [Fact]
+        public void Check_Default_4_String()
+        {
+            var tString = typeof(string);
+            var defaultVal = _mapperSvc.GetDefault(tString);
+
+            Assert.Equal(string.Empty, defaultVal);
+        }
+
+        
     }
 }

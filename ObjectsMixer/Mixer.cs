@@ -173,6 +173,15 @@ namespace ObjectsMixer
                 resultSet.Add(propertyDescriptor.Name, propertyDescriptor.GetValue(priorObj));
             }
         }
+
+        private object GetDefault(Type type)
+        {
+            if (type.IsValueType)
+                return Activator.CreateInstance(type);
+            if (type == typeof(string))
+                return string.Empty;
+            return null;
+        }
         private void PopulateComparedResultSetWithWerge(
             Dictionary<string, object> resultSet,
             IEnumerable<PropertyDescriptor> forComparisonDescr)
@@ -182,7 +191,8 @@ namespace ObjectsMixer
                 var propValueObj = GetNotEmptyPropValueObject(propertyDescriptor);
                 if (propValueObj == null)
                 {
-                    resultSet.Add(propertyDescriptor.Name, propValueObj);
+                    var defaultVal = GetDefault(propertyDescriptor.PropertyType);
+                    resultSet.Add(propertyDescriptor.Name, defaultVal);
                 }
                 else if (propValueObj.GetType().GetInterfaces()
                     .Any(t => t.IsGenericType&& t.GetGenericTypeDefinition() == typeof(IList<>)))
@@ -225,8 +235,8 @@ namespace ObjectsMixer
                         return leftVal;
                     if (!rightIsEmpty && !leftIsEmpty && IsFormula(rightVal.ToString()))
                         return rightVal;
-                    if (leftVal.GetType().GetInterfaces()
-                        .Any(t => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IList<>)))
+                    if (!leftIsEmpty && leftVal.GetType().GetInterfaces()
+                       .Any(t => t.IsGenericType && t.GetGenericTypeDefinition() == typeof(IList<>)))
                     {
                         var internalList = new List<object>();
                         dynamic leftObj = ExtractPropValueOfObjectBy(propertyDescriptor.Name, _left);

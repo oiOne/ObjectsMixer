@@ -24,6 +24,11 @@ namespace ObjectsMixer.UnitTests.Models
         public string Amount { get; set; }
     }
 
+    public class SomeWithTypedInner : Some
+    {
+        public IEnumerable<TypedInner> Inners { get; set; }
+    }
+
     public class TypedInner
     {
         public string Name { get; set; }
